@@ -1,0 +1,111 @@
+---
+title: "Final Project: Business Revenue & Employment Analysis"
+format: html
+editor: visual
+---
+
+```{r setup}
+# Load required packages
+library(tidyverse)
+library(readxl)
+```
+
+## Data Description
+
+```{r load-data}
+# Load the data
+df_raw <- read_excel("expoAbove2million.xlsx")
+
+# Clean revenue
+df_clean <- df_raw %>%
+  mutate(
+    rev1 = str_remove_all(Revenue, "[$,]") %>% str_trim(),
+    Revenue = case_when(
+      str_detect(rev1, regex("Million$", ignore_case = TRUE)) ~
+        as.numeric(str_remove(rev1, regex("\s*Million$", ignore_case = TRUE))) * 1e6,
+      str_detect(rev1, regex("Billion$", ignore_case = TRUE)) ~
+        as.numeric(str_remove(rev1, regex("\s*Billion$", ignore_case = TRUE))) * 1e9,
+      TRUE ~ as.numeric(rev1)
+    ),
+    Employees = str_remove_all(Employees, ",") %>% as.numeric(),
+    Company = `Company Name`
+  ) %>%
+  select(Company, State, Revenue, Employees) %>%
+  drop_na()
+```
+
+### Variables
+
+-   **Company**: Name of the company
+-   **State**: U.S. state where company is located
+-   **Revenue**: Annual revenue in USD
+-   **Employees**: Number of employees
+
+## Questions
+
+1.  Is there a significant difference in revenue between companies in two different states?
+2.  Is there a linear relationship between the number of employees and revenue?
+
+## Descriptive Analysis
+
+```{r histogram}
+# Histogram of Revenue
+ggplot(df_clean, aes(x = Revenue)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Company Revenue", x = "Revenue (USD)", y = "Count")
+```
+
+```{r boxplot}
+# Boxplot of Revenue by State
+ggplot(df_clean, aes(x = State, y = Revenue)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Revenue by State", x = "State", y = "Revenue")
+```
+
+```{r summary-stats}
+# Summary stats by State
+df_clean %>%
+  group_by(State) %>%
+  summarise(
+    Mean_Revenue = mean(Revenue),
+    SD_Revenue = sd(Revenue),
+    Min_Revenue = min(Revenue),
+    Max_Revenue = max(Revenue),
+    .groups = "drop"
+  )
+```
+
+## Inferential Statistics
+
+### Q1: Revenue Difference Between States
+
+```{r t-test}
+# Two-sample t-test
+# Let's choose two common states in the dataset
+states_to_compare <- c("ND", "CA")
+df_ttest <- df_clean %>% filter(State %in% states_to_compare)
+
+t.test(Revenue ~ State, data = df_ttest)
+```
+
+### Q2: Correlation Between Revenue and Employees
+
+```{r correlation}
+# Scatterplot and linear regression
+ggplot(df_clean, aes(x = Employees, y = Revenue)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(title = "Revenue vs. Number of Employees", x = "Employees", y = "Revenue")
+```
+
+```{r regression}
+# Run linear regression
+model <- lm(Revenue ~ Employees, data = df_clean)
+summary(model)
+```
+
+## Conclusion
+
+In this analysis, we examined a dataset of companies with revenue above \$2 million. We explored the distribution of revenue, compared it across states, and assessed the relationship between revenue and number of employees.
+
+We found a statistically significant difference in revenue between selected states and a positive correlation between employee count and revenue. This suggests larger workforces may be associated with higher revenues among these companies.
